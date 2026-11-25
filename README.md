@@ -40,16 +40,31 @@ If you deploy with the **Dockerfile** build pack (bridge network + Traefik domai
    - `DUMB_SPEAKER_HOSTS=192.168.50.108,192.168.50.92` *(your speakers' LAN IPs, since mDNS doesn't cross Docker bridge networks)*
    - `DUMB_SPEAKER_PUBLIC_URL=http://<your-server-lan-ip>:8765` *(or your local HTTP/HTTPS domain reachable by the Google speakers so they can stream `/audio/*.wav`)*
 
+### Telegram Bot Integration
+
+Set `TELEGRAM_BOT_TOKEN` in Coolify (or your local environment) and the server automatically starts Telegram long-polling (works behind local NAT with no public webhook needed):
+
+- `TELEGRAM_BOT_TOKEN` — your bot token from `@BotFather`
+- `TELEGRAM_ALLOWED_USERS` — optional comma-separated Telegram user IDs (send `/myid` to the bot to get yours)
+- `TELEGRAM_DEFAULT_DEVICE` — optional default speaker name or IP
+
+Commands in Telegram: send any message to speak it (EN/UK auto-detected), or use `/speakers`, `/use <name>`, `/vol <0-100>`, `/stop`, `/pomo [work] [break] [cycles] [uk|en]`, `/pomopause`, `/pomostop`, `/status`, `/myid`.
+
 ### HTTP API Endpoints
 
+- `GET /health` — server health, device count, Telegram & Pomodoro status
 - `GET /api/devices` — list cached speakers
 - `POST /api/discover` — refresh mDNS discovery
-- `POST /api/say` — `{"text": "Dinner is ready", "device": "Speakeroo", "engine": "auto"}`
+- `POST /api/say` — `{"text": "Dinner is ready", "device": "Speakeroo", "engine": "auto", "voice": "uk_UA-mykyta-high"}`
 - `POST /api/play` — `{"url": "https://example.com/stream.mp3", "device": "Speakeroo"}`
 - `POST /api/upload` — multipart form upload (`file`, optional `device`)
 - `POST /api/volume` — `{"level": 35, "device": "Speakeroo"}`
 - `POST /api/mute` — `{"muted": true, "device": "Speakeroo"}`
 - `POST /api/stop` — `{"device": "Speakeroo"}`
+- `GET /api/pomodoro` — Pomodoro timer status
+- `POST /api/pomodoro/start` — `{"work_minutes": 25, "break_minutes": 5, "cycles": 4, "lang": "uk", "device": "Speakeroo"}`
+- `POST /api/pomodoro/pause` — toggle pause/resume
+- `POST /api/pomodoro/stop` — stop Pomodoro
 
 ## CLI Usage
 

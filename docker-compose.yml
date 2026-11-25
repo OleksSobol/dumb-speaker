@@ -14,3 +14,7 @@ services:
       # - DUMB_SPEAKER_PUBLIC_URL=http://192.168.50.10:8765
       # Optional: default speaker name or IP
       # - DUMB_SPEAKER=Speakeroo
+      # Optional: Telegram bot integration (long-polling, no webhook needed)
+      # - TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+      # - TELEGRAM_ALLOWED_USERS=123456789
+      # - TELEGRAM_DEFAULT_DEVICE=Speakeroo

@@ -14,7 +14,7 @@ ARG PIPER_VOICES="en_US-lessac-medium uk_UA-mykyta-high"
 RUN mkdir -p /app/voices /app/media && \
     python -m piper.download_voices --download-dir /app/voices ${PIPER_VOICES}
 
-COPY speaker.py speaker_manager.py server.py tts.py ./
+COPY speaker.py speaker_manager.py server.py tts.py pomodoro.py telegram_bot.py ./
 COPY static ./static
 
 EXPOSE 8765

@@ -246,6 +246,20 @@
       border-radius: 999px;
     }
 
+    .pomo-clock {
+      font-size: 2.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    .pomo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 0.75rem;
+      margin-block-end: 0.85rem;
+    }
+
     .meta {
       font-size: 0.875rem;
       color: var(--muted);
@@ -339,6 +353,50 @@
     </section>
 
     <section class="card">
+      <form id="pomo-form" aria-labelledby="pomo-heading">
+        <div class="row" style="justify-content: space-between; margin-block-end: 0.5rem;">
+          <h2 id="pomo-heading" style="margin: 0;">Pomodoro Timer</h2>
+          <span id="pomo-badge" class="meta">Idle</span>
+        </div>
+
+        <div class="pomo-clock" id="pomo-clock" aria-live="off">25:00</div>
+
+        <div class="pomo-grid">
+          <div class="field" style="margin: 0;">
+            <label for="pomo-work">Focus (min)</label>
+            <input type="text" id="pomo-work" name="work_minutes" inputmode="numeric" pattern="\d+" value="25" required>
+          </div>
+          <div class="field" style="margin: 0;">
+            <label for="pomo-break">Break (min)</label>
+            <input type="text" id="pomo-break" name="break_minutes" inputmode="numeric" pattern="\d+" value="5" required>
+          </div>
+          <div class="field" style="margin: 0;">
+            <label for="pomo-cycles">Cycles</label>
+            <input type="text" id="pomo-cycles" name="cycles" inputmode="numeric" pattern="\d+" value="4" required>
+          </div>
+        </div>
+
+        <fieldset>
+          <legend>Announcement language</legend>
+          <label class="radio-item" for="pomo-lang-uk">
+            <input type="radio" id="pomo-lang-uk" name="pomo_lang" value="uk" checked>
+            <span>Українська</span>
+          </label>
+          <label class="radio-item" for="pomo-lang-en">
+            <input type="radio" id="pomo-lang-en" name="pomo_lang" value="en">
+            <span>English</span>
+          </label>
+        </fieldset>
+
+        <div class="row">
+          <button type="submit" id="pomo-start" class="primary">Start Pomodoro</button>
+          <button type="button" id="pomo-pause">Pause</button>
+          <button type="button" id="pomo-stop" class="danger">Stop</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
       <form id="play-form" aria-labelledby="play-heading">
         <h2 id="play-heading">Play Audio</h2>
 
@@ -374,6 +432,14 @@
     const playUrl = document.getElementById("play-url");
     const playFile = document.getElementById("play-file");
     const playSubmit = document.getElementById("play-submit");
+    const pomoForm = document.getElementById("pomo-form");
+    const pomoClock = document.getElementById("pomo-clock");
+    const pomoBadge = document.getElementById("pomo-badge");
+    const pomoWork = document.getElementById("pomo-work");
+    const pomoBreak = document.getElementById("pomo-break");
+    const pomoCycles = document.getElementById("pomo-cycles");
+    const pomoPause = document.getElementById("pomo-pause");
+    const pomoStop = document.getElementById("pomo-stop");
 
     let devices = [];
 
@@ -607,8 +673,89 @@
       }
     }
 
+    function formatClock(totalSeconds) {
+      const secs = Math.max(0, Number(totalSeconds) || 0);
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function renderPomodoro(st) {
+      if (!st || st.state === "idle") {
+        pomoBadge.textContent = "Idle";
+        pomoClock.textContent = formatClock((Number(pomoWork.value) || 25) * 60);
+        pomoPause.textContent = "Pause";
+        pomoPause.disabled = true;
+        pomoStop.disabled = true;
+        return;
+      }
+      const phaseLabel =
+        st.state === "work"
+          ? "Focus"
+          : st.state === "break"
+            ? "Break"
+            : `Paused (${st.paused_from || ""})`;
+      pomoBadge.textContent = `${phaseLabel} • Cycle ${st.cycle}/${st.total_cycles}`;
+      pomoClock.textContent = formatClock(st.remaining_seconds);
+      pomoPause.textContent = st.state === "paused" ? "Resume" : "Pause";
+      pomoPause.disabled = false;
+      pomoStop.disabled = false;
+    }
+
+    async function refreshPomodoro() {
+      try {
+        const st = await apiJson("/api/pomodoro");
+        renderPomodoro(st);
+      } catch (_) {}
+    }
+
+    pomoForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const lang = pomoForm.querySelector('input[name="pomo_lang"]:checked')?.value || "uk";
+      const voice = voiceSelect.value && voiceSelect.value !== "auto" ? voiceSelect.value : null;
+      try {
+        const st = await apiJson("/api/pomodoro/start", {
+          method: "POST",
+          body: JSON.stringify({
+            work_minutes: Number(pomoWork.value) || 25,
+            break_minutes: Number(pomoBreak.value) || 5,
+            cycles: Number(pomoCycles.value) || 4,
+            device: selectedDeviceId(),
+            voice,
+            lang,
+          }),
+        });
+        renderPomodoro(st);
+        setStatus(`Pomodoro started (${st.work_minutes}m focus / ${st.break_minutes}m break).`);
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
+    pomoPause.addEventListener("click", async () => {
+      try {
+        const st = await apiJson("/api/pomodoro/pause", { method: "POST" });
+        renderPomodoro(st);
+        setStatus(`Pomodoro ${st.state}.`);
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
+    pomoStop.addEventListener("click", async () => {
+      try {
+        const st = await apiJson("/api/pomodoro/stop", { method: "POST" });
+        renderPomodoro(st);
+        setStatus("Pomodoro stopped.");
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
     loadDevices(false);
     loadVoices();
+    refreshPomodoro();
+    setInterval(refreshPomodoro, 1000);
   </script>
 </body>
 </html>

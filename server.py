@@ -16,7 +16,9 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
+from pomodoro import PomodoroTimer
 from speaker_manager import SpeakerManager, get_lan_ip_for_target
+from telegram_bot import TelegramBotService
 from tts import list_piper_voice_details, list_piper_voices, synthesize_wav
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +41,56 @@ def _cleanup_old_media(max_age_seconds: int = 3600) -> None:
                 pass
 
 
+def _build_media_url(
+    target_ip: str,
+    filename: str,
+    request: Optional[Request] = None,
+) -> str:
+    public_url = os.environ.get("DUMB_SPEAKER_PUBLIC_URL", "").strip().rstrip("/")
+    if public_url:
+        return f"{public_url}/audio/{filename}"
+    lan_ip = get_lan_ip_for_target(target_ip)
+    port = (request.url.port if request is not None else None) or DEFAULT_PORT
+    return f"http://{lan_ip}:{port}/audio/{filename}"
+
+
+def _speak_sync(
+    text: str,
+    device: Optional[str] = None,
+    engine: str = "auto",
+    voice: Optional[str] = None,
+    request: Optional[Request] = None,
+) -> dict:
+    _cleanup_old_media()
+    cast = manager.resolve(device)
+    filename = f"tts_{uuid.uuid4().hex[:12]}.wav"
+    wav_path = MEDIA_DIR / filename
+    engine_used = synthesize_wav(text, wav_path, engine=engine, voice=voice)
+    url = _build_media_url(cast.cast_info.host, filename, request=request)
+    device_info = manager.play_media(device, url, content_type="audio/wav")
+    return {"ok": True, "engine": engine_used, "device": device_info, "url": url}
+
+
+async def _speak_async(
+    text: str,
+    device: Optional[str] = None,
+    voice: Optional[str] = None,
+) -> dict:
+    return await asyncio.to_thread(_speak_sync, text, device, "auto", voice, None)
+
+
+async def _announce_pomodoro(
+    text: str,
+    device: Optional[str] = None,
+    voice: Optional[str] = None,
+) -> None:
+    await _speak_async(text, device=device, voice=voice)
+
+
+pomodoro = PomodoroTimer(_announce_pomodoro)
+telegram_bot = TelegramBotService(manager=manager, pomodoro=pomodoro, speak_fn=_speak_async)
+
+
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,7 +98,10 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(manager.refresh, 4.0)
     except Exception as exc:
         print(f"Initial speaker discovery failed: {exc}")
+    await telegram_bot.start()
     yield
+    await telegram_bot.stop()
+    await pomodoro.stop()
     await asyncio.to_thread(manager.close)
 
 
@@ -80,6 +135,15 @@ class DeviceRequest(BaseModel):
     device: Optional[str] = None
 
 
+class PomodoroStartRequest(BaseModel):
+    work_minutes: int = Field(25, ge=1, le=180)
+    break_minutes: int = Field(5, ge=1, le=60)
+    cycles: int = Field(4, ge=1, le=12)
+    device: Optional[str] = None
+    voice: Optional[str] = None
+    lang: str = "uk"
+
+
 def _handle_error(exc: Exception) -> HTTPException:
     if isinstance(exc, LookupError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -88,18 +152,14 @@ def _handle_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail=str(exc))
 
 
-def _build_media_url(request: Request, target_ip: str, filename: str) -> str:
-    public_url = os.environ.get("DUMB_SPEAKER_PUBLIC_URL", "").strip().rstrip("/")
-    if public_url:
-        return f"{public_url}/audio/{filename}"
-    lan_ip = get_lan_ip_for_target(target_ip)
-    port = request.url.port or DEFAULT_PORT
-    return f"http://{lan_ip}:{port}/audio/{filename}"
-
-
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "devices": len(manager.list_devices())}
+    return {
+        "ok": True,
+        "devices": len(manager.list_devices()),
+        "telegram_enabled": telegram_bot.enabled,
+        "pomodoro_state": pomodoro.status()["state"],
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -143,18 +203,45 @@ def serve_audio(filename: str) -> FileResponse:
 @app.post("/api/say")
 def say(req: SayRequest, request: Request) -> dict:
     try:
-        _cleanup_old_media()
-        cast = manager.resolve(req.device)
-        filename = f"tts_{uuid.uuid4().hex[:12]}.wav"
-        wav_path = MEDIA_DIR / filename
-        engine_used = synthesize_wav(
-            req.text, wav_path, engine=req.engine, voice=req.voice
+        return _speak_sync(
+            req.text,
+            device=req.device,
+            engine=req.engine,
+            voice=req.voice,
+            request=request,
         )
-        url = _build_media_url(request, cast.cast_info.host, filename)
-        device_info = manager.play_media(req.device, url, content_type="audio/wav")
-        return {"ok": True, "engine": engine_used, "device": device_info, "url": url}
     except Exception as exc:
         raise _handle_error(exc) from exc
+
+
+@app.get("/api/pomodoro")
+def get_pomodoro() -> dict:
+    return pomodoro.status()
+
+
+@app.post("/api/pomodoro/start")
+async def start_pomodoro(req: PomodoroStartRequest) -> dict:
+    try:
+        return await pomodoro.start(
+            work_minutes=req.work_minutes,
+            break_minutes=req.break_minutes,
+            cycles=req.cycles,
+            device=req.device,
+            voice=req.voice,
+            lang=req.lang,
+        )
+    except Exception as exc:
+        raise _handle_error(exc) from exc
+
+
+@app.post("/api/pomodoro/pause")
+async def pause_pomodoro() -> dict:
+    return await pomodoro.toggle_pause()
+
+
+@app.post("/api/pomodoro/stop")
+async def stop_pomodoro() -> dict:
+    return await pomodoro.stop()
 
 
 @app.post("/api/play")
@@ -191,7 +278,7 @@ async def upload_and_play(
         mime = file.content_type
         if not mime or mime == "application/octet-stream":
             mime, _ = mimetypes.guess_type(str(dest))
-        url = _build_media_url(request, cast.cast_info.host, filename)
+        url = _build_media_url(cast.cast_info.host, filename, request=request)
         device_info = manager.play_media(device, url, content_type=mime or "audio/mpeg")
         return {"ok": True, "device": device_info, "url": url}
     except Exception as exc:
