@@ -1,0 +1,16 @@
+services:
+  dumb-speaker:
+    build: .
+    container_name: dumb-speaker
+    restart: unless-stopped
+    # Host networking lets mDNS discover Google Cast speakers on your LAN
+    # and lets speakers reach this server's LAN IP to stream TTS/audio.
+    network_mode: host
+    environment:
+      - DUMB_SPEAKER_PORT=8765
+      # Optional: comma-separated speaker IPs (useful if running in bridge mode instead of host mode)
+      # - DUMB_SPEAKER_HOSTS=192.168.50.108,192.168.50.92
+      # Optional: explicit base URL reachable by the speakers (required if behind a proxy/bridge)
+      # - DUMB_SPEAKER_PUBLIC_URL=http://192.168.50.10:8765
+      # Optional: default speaker name or IP
+      # - DUMB_SPEAKER=Speakeroo

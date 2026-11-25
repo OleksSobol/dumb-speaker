@@ -10,8 +10,10 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Download the default offline Piper neural voice (~60 MB)
+# Download offline Piper neural voices (English + Ukrainian)
 python -m piper.download_voices --download-dir voices en_US-lessac-medium
+python -m piper.download_voices --download-dir voices uk_UA-ukrainian_tts-medium
+# Optional high-quality Ukrainian voices: uk_UA-tetiana-high, uk_UA-oleksa-high, uk_UA-mykyta-high
 ```
 
 ## Web UI & HTTP API (Recommended)
@@ -23,6 +25,20 @@ python speaker.py serve
 ```
 
 Then open **http://localhost:8765** in your browser (or `http://<your-pc-ip>:8765` from your phone on the same Wi-Fi).
+
+## Deploy Locally on Coolify / Docker
+
+### Option A: Docker Compose (Recommended — Automatic Speaker Discovery)
+1. In Coolify, create a **New Resource → Public/Private Git Repository** pointing to this repo (`https://github.com/OleksSobol/dumb-speaker.git`).
+2. Set **Build Pack** to **Docker Compose** (uses `docker-compose.yml`).
+3. Deploy! Because `docker-compose.yml` uses `network_mode: host`, mDNS automatically discovers all Google speakers on your LAN, and the UI is available at `http://<your-server-ip>:8765`.
+
+### Option B: Coolify Dockerfile / Bridge Mode (Behind Reverse Proxy)
+If you deploy with the **Dockerfile** build pack (bridge network + Traefik domain):
+1. Set **Ports Exposes** to `8765` and **Healthcheck Path** to `/health`.
+2. Add these environment variables in Coolify:
+   - `DUMB_SPEAKER_HOSTS=192.168.50.108,192.168.50.92` *(your speakers' LAN IPs, since mDNS doesn't cross Docker bridge networks)*
+   - `DUMB_SPEAKER_PUBLIC_URL=http://<your-server-lan-ip>:8765` *(or your local HTTP/HTTPS domain reachable by the Google speakers so they can stream `/audio/*.wav`)*
 
 ### HTTP API Endpoints
 

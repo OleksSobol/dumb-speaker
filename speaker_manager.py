@@ -27,9 +27,14 @@ class SpeakerManager:
 
     def refresh(self, timeout: float = 4.0) -> list[dict[str, Any]]:
         """Discover Cast devices on the LAN and cache their connections."""
+        raw_hosts = os.environ.get("DUMB_SPEAKER_HOSTS", "")
+        known_hosts = [h.strip() for h in raw_hosts.split(",") if h.strip()] or None
         with self._lock:
             self.close()
-            casts, browser = pychromecast.get_chromecasts(timeout=timeout)
+            casts, browser = pychromecast.get_chromecasts(
+                timeout=timeout,
+                known_hosts=known_hosts,
+            )
             self._casts = casts
             self._browser = browser
             for cast in self._casts:

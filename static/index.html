@@ -302,12 +302,20 @@
         <div class="presets" aria-label="Quick phrases">
           <button type="button" class="chip" data-phrase="Dinner is ready.">Dinner is ready</button>
           <button type="button" class="chip" data-phrase="Task finished.">Task finished</button>
-          <button type="button" class="chip" data-phrase="Time for a break.">Time for a break</button>
+          <button type="button" class="chip" data-phrase="Вечеря готова.">Вечеря готова</button>
+          <button type="button" class="chip" data-phrase="Готово!">Готово!</button>
         </div>
 
         <div class="field">
-          <label for="say-text">Message</label>
-          <textarea id="say-text" name="text" required placeholder="Type something for the speaker to say..." enterkeyhint="send"></textarea>
+          <label for="say-text">Message (English or Ukrainian)</label>
+          <textarea id="say-text" name="text" required placeholder="Type in English or Українською..." enterkeyhint="send"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="voice-select">Voice</label>
+          <select id="voice-select" name="voice">
+            <option value="auto">Auto (detect English / Ukrainian)</option>
+          </select>
         </div>
 
         <fieldset>
@@ -360,6 +368,7 @@
     const refreshBtn = document.getElementById("refresh-btn");
     const sayForm = document.getElementById("say-form");
     const sayText = document.getElementById("say-text");
+    const voiceSelect = document.getElementById("voice-select");
     const saySubmit = document.getElementById("say-submit");
     const playForm = document.getElementById("play-form");
     const playUrl = document.getElementById("play-url");
@@ -515,12 +524,13 @@
       const text = sayText.value.trim();
       if (!text) return;
       const engine = sayForm.querySelector('input[name="engine"]:checked')?.value || "auto";
+      const voice = voiceSelect.value && voiceSelect.value !== "auto" ? voiceSelect.value : null;
       saySubmit.disabled = true;
       setStatus("Synthesizing speech and casting...");
       try {
         const data = await apiJson("/api/say", {
           method: "POST",
-          body: JSON.stringify({ device: selectedDeviceId(), text, engine }),
+          body: JSON.stringify({ device: selectedDeviceId(), text, engine, voice }),
         });
         setStatus(`Spoke via ${data.engine} on ${data.device.name}.`);
       } catch (err) {
@@ -565,7 +575,28 @@
       }
     });
 
+    async function loadVoices() {
+      try {
+        const data = await apiJson("/api/voices");
+        const voices = data.voices || [];
+        voiceSelect.innerHTML = '<option value="auto">Auto (detect English / Ukrainian)</option>';
+        for (const v of voices) {
+          const opt = document.createElement("option");
+          opt.value = v.id;
+          opt.textContent = v.label || v.id;
+          voiceSelect.appendChild(opt);
+        }
+        if (Array.isArray(data.engines) && !data.engines.includes("sapi")) {
+          const sapiInput = document.getElementById("engine-sapi");
+          if (sapiInput?.parentElement) sapiInput.parentElement.hidden = true;
+        }
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    }
+
     loadDevices(false);
+    loadVoices();
   </script>
 </body>
 </html>

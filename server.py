@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import mimetypes
 import os
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -16,7 +17,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from speaker_manager import SpeakerManager, get_lan_ip_for_target
-from tts import list_piper_voices, synthesize_wav
+from tts import list_piper_voice_details, list_piper_voices, synthesize_wav
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -88,9 +89,17 @@ def _handle_error(exc: Exception) -> HTTPException:
 
 
 def _build_media_url(request: Request, target_ip: str, filename: str) -> str:
+    public_url = os.environ.get("DUMB_SPEAKER_PUBLIC_URL", "").strip().rstrip("/")
+    if public_url:
+        return f"{public_url}/audio/{filename}"
     lan_ip = get_lan_ip_for_target(target_ip)
     port = request.url.port or DEFAULT_PORT
     return f"http://{lan_ip}:{port}/audio/{filename}"
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"ok": True, "devices": len(manager.list_devices())}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -113,9 +122,11 @@ def discover_devices() -> dict:
 
 @app.get("/api/voices")
 def get_voices() -> dict:
+    engines = ["auto", "piper", "sapi"] if sys.platform == "win32" else ["auto", "piper"]
     return {
         "piper": list_piper_voices(),
-        "engines": ["auto", "piper", "sapi"],
+        "voices": list_piper_voice_details(),
+        "engines": engines,
     }
 
 
