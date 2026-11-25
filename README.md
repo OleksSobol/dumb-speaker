@@ -12,8 +12,8 @@ pip install -r requirements.txt
 
 # Download offline Piper neural voices (English + Ukrainian)
 python -m piper.download_voices --download-dir voices en_US-lessac-medium
-python -m piper.download_voices --download-dir voices uk_UA-ukrainian_tts-medium
-# Optional high-quality Ukrainian voices: uk_UA-tetiana-high, uk_UA-oleksa-high, uk_UA-mykyta-high
+python -m piper.download_voices --download-dir voices uk_UA-mykyta-high
+# Optional Ukrainian voices: uk_UA-tetiana-high, uk_UA-oleksa-high, uk_UA-ukrainian_tts-medium
 ```
 
 ## Web UI & HTTP API (Recommended)

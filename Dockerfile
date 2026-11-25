@@ -10,7 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download default English and Ukrainian Piper voices into /app/voices
-ARG PIPER_VOICES="en_US-lessac-medium uk_UA-ukrainian_tts-medium"
+ARG PIPER_VOICES="en_US-lessac-medium uk_UA-mykyta-high"
 RUN mkdir -p /app/voices /app/media && \
     python -m piper.download_voices --download-dir /app/voices ${PIPER_VOICES}
 

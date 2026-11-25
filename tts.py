@@ -14,7 +14,7 @@ from typing import Optional
 
 VOICES_DIR = Path(__file__).resolve().parent / "voices"
 DEFAULT_EN_VOICE = "en_US-lessac-medium"
-DEFAULT_UK_VOICE = "uk_UA-ukrainian_tts-medium"
+DEFAULT_UK_VOICE = "uk_UA-mykyta-high"
 
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 _LANG_NAMES = {
