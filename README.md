@@ -40,15 +40,14 @@ If you deploy with the **Dockerfile** build pack (bridge network + Traefik domai
    - `DUMB_SPEAKER_HOSTS=192.168.50.108,192.168.50.92` *(your speakers' LAN IPs, since mDNS doesn't cross Docker bridge networks)*
    - `DUMB_SPEAKER_PUBLIC_URL=http://<your-server-lan-ip>:8765` *(or your local HTTP/HTTPS domain reachable by the Google speakers so they can stream `/audio/*.wav`)*
 
-### Telegram Bot Integration
+### Connect to Your Existing TelegramBot
 
-Set `TELEGRAM_BOT_TOKEN` in Coolify (or your local environment) and the server automatically starts Telegram long-polling (works behind local NAT with no public webhook needed):
+In your deployed `TelegramBot` Coolify environment variables, set:
 
-- `TELEGRAM_BOT_TOKEN` — your bot token from `@BotFather`
-- `TELEGRAM_ALLOWED_USERS` — optional comma-separated Telegram user IDs (send `/myid` to the bot to get yours)
-- `TELEGRAM_DEFAULT_DEVICE` — optional default speaker name or IP
+- `DUMB_SPEAKER_URL=http://<your-coolify-server-lan-ip>:8765`
+- `DUMB_SPEAKER_DEFAULT_DEVICE=Speakeroo` *(optional)*
 
-Commands in Telegram: send any message to speak it (EN/UK auto-detected), or use `/speakers`, `/use <name>`, `/vol <0-100>`, `/stop`, `/pomo [work] [break] [cycles] [uk|en]`, `/pomopause`, `/pomostop`, `/status`, `/myid`.
+Then use `/speaker`, `/say <text>`, `/pomo`, `/pomostop`, `/speakerstop`, or `/menu` → **🔊 Speaker & Pomodoro** in Telegram.
 
 ### HTTP API Endpoints
 

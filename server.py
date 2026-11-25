@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 
 from pomodoro import PomodoroTimer
 from speaker_manager import SpeakerManager, get_lan_ip_for_target
-from telegram_bot import TelegramBotService
 from tts import list_piper_voice_details, list_piper_voices, synthesize_wav
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -88,7 +87,6 @@ async def _announce_pomodoro(
 
 
 pomodoro = PomodoroTimer(_announce_pomodoro)
-telegram_bot = TelegramBotService(manager=manager, pomodoro=pomodoro, speak_fn=_speak_async)
 
 
 @contextlib.asynccontextmanager
@@ -98,9 +96,7 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(manager.refresh, 4.0)
     except Exception as exc:
         print(f"Initial speaker discovery failed: {exc}")
-    await telegram_bot.start()
     yield
-    await telegram_bot.stop()
     await pomodoro.stop()
     await asyncio.to_thread(manager.close)
 
@@ -157,7 +153,6 @@ def health() -> dict:
     return {
         "ok": True,
         "devices": len(manager.list_devices()),
-        "telegram_enabled": telegram_bot.enabled,
         "pomodoro_state": pomodoro.status()["state"],
     }
 
