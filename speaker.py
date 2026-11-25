@@ -9,7 +9,6 @@ import http.server
 import mimetypes
 import os
 import socket
-import subprocess
 import sys
 import tempfile
 import threading
@@ -19,6 +18,8 @@ from pathlib import Path
 from typing import Optional
 
 import pychromecast
+
+from tts import synthesize_wav
 
 
 def get_lan_ip_for_target(target_ip: str) -> str:
@@ -132,31 +133,6 @@ def serve_file_and_play(
         server.server_close()
 
 
-def synthesize_tts_wav(text: str, output_wav: Path) -> None:
-    """Generate a WAV file using Windows built-in System.Speech (offline)."""
-    ps_script = (
-        "Add-Type -AssemblyName System.Speech; "
-        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$s.SetOutputToWaveFile($env:DUMB_TTS_OUT); "
-        "$s.Speak($env:DUMB_TTS_TEXT); "
-        "$s.Dispose()"
-    )
-    env = os.environ.copy()
-    env["DUMB_TTS_OUT"] = str(output_wav)
-    env["DUMB_TTS_TEXT"] = text
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Windows TTS failed: {result.stderr.strip() or result.stdout.strip()}")
-    if not output_wav.exists() or output_wav.stat().st_size == 0:
-        raise RuntimeError("Windows TTS produced an empty audio file.")
-
-
 def cmd_discover(args: argparse.Namespace) -> int:
     with open_speakers(timeout=args.timeout) as casts:
         if not casts:
@@ -237,9 +213,23 @@ def cmd_say(args: argparse.Namespace) -> int:
     with connect_speaker(args.device, timeout=args.timeout) as cast:
         with tempfile.TemporaryDirectory() as tmpdir:
             wav_path = Path(tmpdir) / "tts.wav"
-            synthesize_tts_wav(args.text, wav_path)
-            print(f"Speaking on {cast.cast_info.friendly_name.strip()}: {args.text!r}")
+            used = synthesize_wav(args.text, wav_path, engine=args.engine, voice=args.voice)
+            print(f"Speaking ({used}) on {cast.cast_info.friendly_name.strip()}: {args.text!r}")
             serve_file_and_play(cast, wav_path, "audio/wav", wait=True)
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    os.environ["DUMB_SPEAKER_PORT"] = str(args.port)
+    print(f"Web UI (this PC): http://localhost:{args.port}")
+    try:
+        lan_ip = get_lan_ip_for_target("1.1.1.1")
+        print(f"Web UI (LAN):     http://{lan_ip}:{args.port}")
+    except OSError:
+        pass
+    uvicorn.run("server:app", host=args.host, port=args.port, reload=False)
     return 0
 
 
@@ -273,10 +263,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_play.add_argument("--no-wait", action="store_true", help="Exit immediately (streams only; local files stop serving on exit).")
     p_play.set_defaults(func=cmd_play)
 
-    p_say = sub.add_parser("say", help="Speak text using offline Windows TTS.")
+    p_say = sub.add_parser("say", help="Speak text using offline TTS (Piper or Windows SAPI).")
     p_say.add_argument("text", help="Text to speak.")
     p_say.add_argument("--device", "-d", help="Speaker name (or partial) or IP.")
+    p_say.add_argument("--engine", default="auto", choices=["auto", "piper", "sapi"], help="TTS engine.")
+    p_say.add_argument("--voice", help="Piper voice model name in voices/ (without .onnx).")
     p_say.set_defaults(func=cmd_say)
+
+    p_serve = sub.add_parser("serve", help="Start the persistent Web UI and HTTP API server.")
+    p_serve.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0).")
+    p_serve.add_argument("--port", type=int, default=8765, help="Port (default: 8765).")
+    p_serve.set_defaults(func=cmd_serve)
 
     return parser
 

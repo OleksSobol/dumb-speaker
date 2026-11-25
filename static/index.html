@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dumb Speaker</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --brand: #2563eb;
+      --brand-hover: #1d4ed8;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #57606a;
+      --danger: #cf222e;
+      --radius: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --brand: #60a5fa;
+        --brand-hover: #93c5fd;
+        --bg: #0d1117;
+        --surface: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --danger: #f85149;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      accent-color: var(--brand);
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-block-end: 1rem;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="file"],
+    select,
+    textarea {
+      font: inherit;
+      font-size: max(1rem, 1em);
+      min-height: 48px;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      width: 100%;
+    }
+
+    textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 3px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    button {
+      font: inherit;
+      font-size: max(1rem, 1em);
+      font-weight: 600;
+      min-height: 48px;
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #0b1120;
+    }
+
+    @media (prefers-color-scheme: light) {
+      button.primary {
+        color: #ffffff;
+      }
+    }
+
+    button.danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .row > .grow {
+      flex: 1 1 200px;
+    }
+
+    fieldset {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      margin: 0 0 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    legend {
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0 0.35rem;
+    }
+
+    .radio-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 40px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .radio-item input[type="radio"] {
+      width: 1.15rem;
+      height: 1.15rem;
+      margin: 0;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-block-end: 0.85rem;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      min-height: 48px;
+      cursor: pointer;
+    }
+
+    @supports not (accent-color: auto) {
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(to right, var(--brand) var(--progress, 0%), var(--border) var(--progress, 0%));
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--brand);
+        margin-top: -5px;
+      }
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-block-end: 0.85rem;
+    }
+
+    .chip {
+      min-height: 36px;
+      padding: 0.25rem 0.7rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 999px;
+    }
+
+    .meta {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    #status-bar {
+      min-height: 1.5rem;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    #status-bar[data-error="true"] {
+      color: var(--danger);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Dumb Speaker</h1>
+        <div class="meta">Local LAN controller &amp; offline TTS</div>
+      </div>
+      <button type="button" id="refresh-btn">Refresh speakers</button>
+    </header>
+
+    <div id="status-bar" role="status" aria-live="polite"></div>
+
+    <section class="card" aria-labelledby="speaker-heading">
+      <h2 id="speaker-heading">Speaker</h2>
+      <div class="field">
+        <label for="device-select">Target device</label>
+        <select id="device-select" name="device"></select>
+        <div id="device-meta" class="meta"></div>
+      </div>
+
+      <div class="slider-row">
+        <label for="volume-range">Volume</label>
+        <input type="range" id="volume-range" name="volume" min="0" max="100" value="20">
+        <span id="volume-value" aria-live="off">20%</span>
+      </div>
+
+      <div class="row">
+        <button type="button" id="mute-btn" aria-pressed="false">Mute</button>
+        <button type="button" id="stop-btn" class="danger">Stop playback</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <form id="say-form" aria-labelledby="say-heading">
+        <h2 id="say-heading">Speak (Offline TTS)</h2>
+
+        <div class="presets" aria-label="Quick phrases">
+          <button type="button" class="chip" data-phrase="Dinner is ready.">Dinner is ready</button>
+          <button type="button" class="chip" data-phrase="Task finished.">Task finished</button>
+          <button type="button" class="chip" data-phrase="Time for a break.">Time for a break</button>
+        </div>
+
+        <div class="field">
+          <label for="say-text">Message</label>
+          <textarea id="say-text" name="text" required placeholder="Type something for the speaker to say..." enterkeyhint="send"></textarea>
+        </div>
+
+        <fieldset>
+          <legend>TTS engine</legend>
+          <label class="radio-item" for="engine-auto">
+            <input type="radio" id="engine-auto" name="engine" value="auto" checked>
+            <span>Auto (Piper)</span>
+          </label>
+          <label class="radio-item" for="engine-piper">
+            <input type="radio" id="engine-piper" name="engine" value="piper">
+            <span>Piper</span>
+          </label>
+          <label class="radio-item" for="engine-sapi">
+            <input type="radio" id="engine-sapi" name="engine" value="sapi">
+            <span>Windows SAPI</span>
+          </label>
+        </fieldset>
+
+        <button type="submit" id="say-submit" class="primary">Speak</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <form id="play-form" aria-labelledby="play-heading">
+        <h2 id="play-heading">Play Audio</h2>
+
+        <div class="field">
+          <label for="play-url">Stream URL</label>
+          <input type="url" id="play-url" name="url" placeholder="https://example.com/stream.mp3" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+
+        <div class="field">
+          <label for="play-file">Or upload local audio file</label>
+          <input type="file" id="play-file" name="file" accept="audio/*">
+        </div>
+
+        <button type="submit" id="play-submit" class="primary">Play</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const statusBar = document.getElementById("status-bar");
+    const deviceSelect = document.getElementById("device-select");
+    const deviceMeta = document.getElementById("device-meta");
+    const volumeRange = document.getElementById("volume-range");
+    const volumeValue = document.getElementById("volume-value");
+    const muteBtn = document.getElementById("mute-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const sayForm = document.getElementById("say-form");
+    const sayText = document.getElementById("say-text");
+    const saySubmit = document.getElementById("say-submit");
+    const playForm = document.getElementById("play-form");
+    const playUrl = document.getElementById("play-url");
+    const playFile = document.getElementById("play-file");
+    const playSubmit = document.getElementById("play-submit");
+
+    let devices = [];
+
+    function setStatus(message, isError = false) {
+      statusBar.textContent = message;
+      statusBar.dataset.error = isError ? "true" : "false";
+    }
+
+    function selectedDeviceId() {
+      return deviceSelect.value || null;
+    }
+
+    function syncRangeFallback(val) {
+      if (!CSS.supports("accent-color", "auto")) {
+        volumeRange.style.setProperty("--progress", `${val}%`);
+      }
+    }
+
+    function renderSelectedDevice() {
+      const dev = devices.find((d) => d.id === deviceSelect.value);
+      if (!dev) {
+        deviceMeta.textContent = "No speakers found on the LAN.";
+        return;
+      }
+      deviceMeta.textContent = `${dev.model} • ${dev.ip} • ${dev.app} (${dev.player_state})`;
+      volumeRange.value = dev.volume;
+      volumeValue.textContent = `${dev.volume}%`;
+      syncRangeFallback(dev.volume);
+      muteBtn.setAttribute("aria-pressed", dev.muted ? "true" : "false");
+      muteBtn.textContent = dev.muted ? "Unmute" : "Mute";
+    }
+
+    async function apiJson(url, options = {}) {
+      const resp = await fetch(url, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.detail || `Request failed (${resp.status})`);
+      }
+      return data;
+    }
+
+    async function loadDevices(refresh = false) {
+      try {
+        if (refresh) {
+          refreshBtn.disabled = true;
+          setStatus("Scanning local network for speakers...");
+        }
+        const data = await apiJson(refresh ? "/api/discover" : "/api/devices", {
+          method: refresh ? "POST" : "GET",
+        });
+        const prev = deviceSelect.value;
+        devices = data.devices || [];
+        deviceSelect.innerHTML = "";
+        for (const d of devices) {
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.textContent = `${d.name} (${d.model})`;
+          deviceSelect.appendChild(opt);
+        }
+        if (prev && devices.some((d) => d.id === prev)) {
+          deviceSelect.value = prev;
+        }
+        renderSelectedDevice();
+        if (refresh) {
+          setStatus(`Found ${devices.length} speaker(s).`);
+        }
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    deviceSelect.addEventListener("change", renderSelectedDevice);
+    refreshBtn.addEventListener("click", () => loadDevices(true));
+
+    let volumeTimer = null;
+    volumeRange.addEventListener("input", () => {
+      const level = Number(volumeRange.value);
+      volumeValue.textContent = `${level}%`;
+      syncRangeFallback(level);
+      clearTimeout(volumeTimer);
+      volumeTimer = setTimeout(async () => {
+        try {
+          const data = await apiJson("/api/volume", {
+            method: "POST",
+            body: JSON.stringify({ device: selectedDeviceId(), level }),
+          });
+          const idx = devices.findIndex((d) => d.id === data.device.id);
+          if (idx >= 0) devices[idx] = data.device;
+          setStatus(`Volume set to ${level}%.`);
+        } catch (err) {
+          setStatus(err.message, true);
+        }
+      }, 150);
+    });
+
+    muteBtn.addEventListener("click", async () => {
+      const nextMuted = muteBtn.getAttribute("aria-pressed") !== "true";
+      try {
+        const data = await apiJson("/api/mute", {
+          method: "POST",
+          body: JSON.stringify({ device: selectedDeviceId(), muted: nextMuted }),
+        });
+        const idx = devices.findIndex((d) => d.id === data.device.id);
+        if (idx >= 0) devices[idx] = data.device;
+        renderSelectedDevice();
+        setStatus(nextMuted ? "Speaker muted." : "Speaker unmuted.");
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
+    stopBtn.addEventListener("click", async () => {
+      try {
+        const data = await apiJson("/api/stop", {
+          method: "POST",
+          body: JSON.stringify({ device: selectedDeviceId() }),
+        });
+        const idx = devices.findIndex((d) => d.id === data.device.id);
+        if (idx >= 0) devices[idx] = data.device;
+        renderSelectedDevice();
+        setStatus("Playback stopped.");
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+
+    document.querySelectorAll("[data-phrase]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        sayText.value = btn.dataset.phrase;
+        sayText.focus();
+      });
+    });
+
+    sayText.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        sayForm.requestSubmit();
+      }
+    });
+
+    sayForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = sayText.value.trim();
+      if (!text) return;
+      const engine = sayForm.querySelector('input[name="engine"]:checked')?.value || "auto";
+      saySubmit.disabled = true;
+      setStatus("Synthesizing speech and casting...");
+      try {
+        const data = await apiJson("/api/say", {
+          method: "POST",
+          body: JSON.stringify({ device: selectedDeviceId(), text, engine }),
+        });
+        setStatus(`Spoke via ${data.engine} on ${data.device.name}.`);
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        saySubmit.disabled = false;
+      }
+    });
+
+    playForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = playFile.files?.[0];
+      const url = playUrl.value.trim();
+      if (!file && !url) {
+        setStatus("Enter a stream URL or choose an audio file.", true);
+        playUrl.focus();
+        return;
+      }
+
+      playSubmit.disabled = true;
+      setStatus("Starting playback...");
+      try {
+        if (file) {
+          const formData = new FormData();
+          formData.append("file", file);
+          if (selectedDeviceId()) formData.append("device", selectedDeviceId());
+          const resp = await fetch("/api/upload", { method: "POST", body: formData });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data.detail || `Upload failed (${resp.status})`);
+          setStatus(`Playing ${file.name} on ${data.device.name}.`);
+        } else {
+          const data = await apiJson("/api/play", {
+            method: "POST",
+            body: JSON.stringify({ device: selectedDeviceId(), url }),
+          });
+          setStatus(`Playing stream on ${data.device.name}.`);
+        }
+      } catch (err) {
+        setStatus(err.message, true);
+      } finally {
+        playSubmit.disabled = false;
+      }
+    });
+
+    loadDevices(false);
+  </script>
+</body>
+</html>
