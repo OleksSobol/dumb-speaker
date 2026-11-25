@@ -575,6 +575,12 @@
       }
     });
 
+    voiceSelect.addEventListener("change", () => {
+      try {
+        localStorage.setItem("dumb_speaker_voice", voiceSelect.value);
+      } catch (_) {}
+    });
+
     async function loadVoices() {
       try {
         const data = await apiJson("/api/voices");
@@ -586,6 +592,12 @@
           opt.textContent = v.label || v.id;
           voiceSelect.appendChild(opt);
         }
+        try {
+          const saved = localStorage.getItem("dumb_speaker_voice");
+          if (saved && Array.from(voiceSelect.options).some((o) => o.value === saved)) {
+            voiceSelect.value = saved;
+          }
+        } catch (_) {}
         if (Array.isArray(data.engines) && !data.engines.includes("sapi")) {
           const sapiInput = document.getElementById("engine-sapi");
           if (sapiInput?.parentElement) sapiInput.parentElement.hidden = true;

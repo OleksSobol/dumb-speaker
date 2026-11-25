@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -38,7 +39,7 @@ def list_piper_voices() -> list[str]:
 
 
 def list_piper_voice_details() -> list[dict[str, str]]:
-    """Return structured metadata for installed Piper voices."""
+    """Return structured metadata for installed Piper voices (including multi-speaker voices)."""
     details: list[dict[str, str]] = []
     for stem in list_piper_voices():
         parts = stem.split("-")
@@ -47,9 +48,47 @@ def list_piper_voice_details() -> list[dict[str, str]]:
         name = parts[1] if len(parts) > 1 else stem
         quality = parts[2] if len(parts) > 2 else ""
         lang_label = _LANG_NAMES.get(lang, locale or "Other")
-        label = f"{lang_label} — {name}" + (f" ({quality})" if quality else "")
-        details.append({"id": stem, "lang": lang, "label": label})
+        suffix = f" ({quality})" if quality else ""
+
+        speaker_map: dict[str, int] = {}
+        cfg_path = VOICES_DIR / f"{stem}.onnx.json"
+        if cfg_path.is_file():
+            try:
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                raw_map = cfg.get("speaker_id_map") or {}
+                if isinstance(raw_map, dict) and len(raw_map) > 1:
+                    speaker_map = raw_map
+            except Exception:
+                pass
+
+        if speaker_map:
+            for speaker_name in sorted(speaker_map, key=lambda k: speaker_map[k]):
+                details.append(
+                    {
+                        "id": f"{stem}:{speaker_name}",
+                        "lang": lang,
+                        "label": f"{lang_label} — {speaker_name.capitalize()}{suffix}",
+                    }
+                )
+        else:
+            details.append(
+                {
+                    "id": stem,
+                    "lang": lang,
+                    "label": f"{lang_label} — {name.capitalize()}{suffix}",
+                }
+            )
     return details
+
+
+def _parse_voice_spec(voice: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if not voice or voice.strip().lower() == "auto":
+        return None, None
+    cleaned = voice.strip()
+    if ":" in cleaned:
+        model_name, speaker_name = cleaned.split(":", 1)
+        return model_name.strip(), speaker_name.strip() or None
+    return cleaned, None
 
 
 def _resolve_piper_model(
@@ -59,11 +98,12 @@ def _resolve_piper_model(
     if not VOICES_DIR.is_dir():
         return None
 
-    if voice and voice.strip().lower() != "auto":
-        candidate = VOICES_DIR / f"{voice.strip()}.onnx"
+    model_name, _ = _parse_voice_spec(voice)
+    if model_name:
+        candidate = VOICES_DIR / f"{model_name}.onnx"
         if candidate.is_file():
             return candidate
-        raise FileNotFoundError(f"Piper voice {voice!r} not found in {VOICES_DIR}")
+        raise FileNotFoundError(f"Piper voice {model_name!r} not found in {VOICES_DIR}")
 
     lang = detect_language(text) if text else "en"
     preferred = DEFAULT_UK_VOICE if lang == "uk" else DEFAULT_EN_VOICE
@@ -85,7 +125,9 @@ def _resolve_piper_model(
 def synthesize_piper_wav(text: str, output_wav: Path, voice: Optional[str] = None) -> str:
     """Synthesize speech to output_wav using a cached PiperVoice model."""
     from piper import PhonemeType, PiperVoice
+    from piper.config import SynthesisConfig
 
+    _, speaker_name = _parse_voice_spec(voice)
     model_path = _resolve_piper_model(voice=voice, text=text)
     if model_path is None:
         raise FileNotFoundError(
@@ -99,14 +141,26 @@ def synthesize_piper_wav(text: str, output_wav: Path, voice: Optional[str] = Non
             loaded = PiperVoice.load(model_path)
             _piper_cache[model_path] = loaded
 
+    syn_config = None
+    label = model_path.stem
+    if speaker_name:
+        speaker_map = getattr(loaded.config, "speaker_id_map", None) or {}
+        if speaker_name not in speaker_map:
+            available = ", ".join(sorted(speaker_map))
+            raise ValueError(
+                f"Unknown speaker {speaker_name!r} for {model_path.stem}. Available: {available}"
+            )
+        syn_config = SynthesisConfig(speaker_id=speaker_map[speaker_name])
+        label = f"{model_path.stem}:{speaker_name}"
+
     synth_text = text.lower() if loaded.config.phoneme_type == PhonemeType.TEXT else text
 
     with wave.open(str(output_wav), "wb") as wav_file:
-        loaded.synthesize_wav(synth_text, wav_file)
+        loaded.synthesize_wav(synth_text, wav_file, syn_config=syn_config)
 
     if not output_wav.exists() or output_wav.stat().st_size == 0:
         raise RuntimeError("Piper TTS produced an empty audio file.")
-    return f"piper:{model_path.stem}"
+    return f"piper:{label}"
 
 
 def synthesize_sapi_wav(text: str, output_wav: Path) -> str:
